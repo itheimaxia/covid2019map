@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>疫情地图展示</title>
+    <style>
+        .container {
+            width: 1200px;
+            margin: 0 auto;
+        }
+
+        #myEcharts {
+            width: 800px;
+            height: 500px;
+            margin: 0 auto;
+        }
+
+        #tabDiv {
+            text-align: center;
+        }
+
+        #tabDiv input[type='button'] {
+            width: 180px;
+        }
+
+    </style>
+    <!--引入bootstrap的css样式-->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <!--引入jquery-->
+    <script src="js/jquery-3.3.1.min.js"></script>
+    <!--引入echarts-->
+    <script src="js/echarts.min.js"></script>
+    <!--引入echarts中的中国地图-->
+    <script src="js/china.js"></script>
+    <!--引入bootstrap-->
+    <script src="js/bootstrap.min.js"></script>
+
+</head>
+<body>
+<div class="container">
+    <h3></h3>
+    <!--为echarts准备一个dom容器-->
+    <div id="myEcharts"></div>
+    <br/>
+    <br/>
+    <br/>
+    <div id="tabDiv">
+        <input type="button" id="confirmedBtn" class="btn btn-default countBtn" value="累计确诊"/> |
+        <input type="button" id="curedBtn" class="btn btn-default countBtn" value="累计治愈"/> |
+        <input type="button" id="deadBtn" class="btn btn-default countBtn" value="累计死亡"/>
+    </div>
+
+    <!-- 模态框（Modal） -->
+    <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                    <h4 class="modal-title" id="myModalLabel">提示</h4>
+                </div>
+                <div class="modal-body" id="errorMsg" style="color: red"><h4>服务器繁忙,稍后请重试...</h4></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    //初始化echarts实例(参数要求是一个DOM对象)
+    var myChart = echarts.init($("#myEcharts").get(0));
+    // 指定图表的配置项和数据
+    option = {
+        //标题
+        title: {
+            text: '国内疫情信息分布',   //标题内容
+            textStyle: {                //标题样式
+                fontSize: 28
+            },
+            left: 'center'              //标题位置
+        },
+        //提示框
+        tooltip: {
+            trigger: 'item'             // 触发类型，可选为：'item' ¦ 'axis'
+        },
+        //图表信息
+        series: [
+            {
+                name: '疫情数据统计',     //标签名称
+                type: 'map',            //图表类型
+                mapType: 'china',       //地图类型(使用的是哪个地图)
+                label: {                //标签信息(提示框)
+                    show: true,
+                    color: 'rgb(249, 249, 249)'
+                },
+                data: []                //数据
+            }
+        ],
+        //视觉效果(图例)
+        visualMap: {
+            type: 'piecewise',
+            pieces: [
+                {min: 2000, max: 1000000, label: '大于2000人', color: '#a43708'},
+                {min: 1000, max: 1999, label: '1000-1999人', color: '#ef5a1e'},
+                {min: 500, max: 999, label: '500-999人', color: '#fb8b5b'},
+                {min: 100, max: 499, label: '100-499人', color: '#f6bea2'},
+                {min: 1, max: 99, label: '1-99人', color: '#ffe0b9'},
+            ]
+        }
+    };
+
+    //使用指定的配置项和数据显示图表
+    myChart.setOption(option);
+
+    //点击每个省份的时候,
+    myChart.on('dblclick', function (params) {
+        //跳转页面,并携带当前省份的简写形式作为参数,传递给柱状图页面
+        location.href = "province.html?provinceShortName=" + params.name.substring(0,2);
+    });
+
+    $(function () {
+
+        //累计确诊病例-数据
+        var confirmedArr = [];
+        //累计确诊病例-图例
+        var confirmedPieces = [
+            {min: 2000, max: 1000000, label: '大于2000人', color: '#a43708'},
+            {min: 1000, max: 9999, label: '1000-1999人', color: '#ef5a1e'},
+            {min: 500, max: 999, label: '500-999人', color: '#fb8b5b'},
+            {min: 100, max: 499, label: '100-499人', color: '#f6bea2'},
+            {min: 1, max: 99, label: '1-99人', color: '#ffe0b9'},
+        ];
+
+        //累计治愈病例-数据
+        var curedArr = [];
+        //累计治愈病例-图例
+        var curedPieces = [
+            {min: 2000, max: 1000000, label: '大于2000人', color: '#3a9750'},
+            {min: 1000, max: 1999, label: '1000-1999人', color: '#66d862'},
+            {min: 500, max: 999, label: '500-999人', color: '#7cf22c'},
+            {min: 100, max: 499, label: '100-499人', color: '#c7ff04'},
+            {min: 1, max: 99, label: '1-99人', color: '#ecff0c'},
+        ];
+
+
+        //累计死亡病例-数据
+        var deadArr = [];
+        //累计死亡病例-图例
+        var deadPieces = [
+            {min: 500, max: 1000000, label: '大于500人', color: '#a43708'},
+            {min: 100, max: 500, label: '100-499人', color: '#ef5a1e'},
+            {min: 10, max: 99, label: '10-99人', color: '#fb8b5b'},
+            {min: 1, max: 9, label: '1-9人', color: '#f6bea2'},
+            {min: 0, max: 0, label: '0人', color: '#ffe0b9'},
+        ];
+
+        //页面加载完成后,发送异步请求,获取所有数据
+        $.ajax({
+            //请求的url
+            url: "http://localhost:8080/findAll",
+            //响应的数据类型
+            dataType: "json",
+            //响应成功时
+            success: function (result) {
+                //判断数据,如果不为空
+                if (result) {
+                    //获取到各个省份的数据
+                    var pros = result.newslist;
+                    for (var i = 0; i < pros.length; i++) {
+                        //处理确诊病例数据
+                        var confirmedData = {
+                            name: pros[i].provinceShortName,
+                            value: pros[i].confirmedCount
+                        };
+                        confirmedArr.push(confirmedData);
+
+                        //处理治愈病例数据
+                        var curedData = {
+                            name: pros[i].provinceShortName,
+                            value: pros[i].curedCount
+                        };
+                        curedArr.push(curedData);
+
+                        //处理死亡病例数据
+                        var deadData = {
+                            name: pros[i].provinceShortName,
+                            value: pros[i].deadCount
+                        };
+                        deadArr.push(deadData);
+                    }
+                }else{
+                    $("#myModal").modal("show");
+                }
+
+                //数据处理完毕后, 打开"累计确诊"
+                $("#confirmedBtn").click();
+            },
+            //响应失败时
+            error: function () {
+                $("#myModal").modal("show");
+            }
+        });
+
+        //点击"累计确诊"按钮时
+        $("#confirmedBtn").click(function () {
+            //当前按钮不可用
+            $("#confirmedBtn").attr("disabled", true);
+            //其他兄弟按钮可用
+            $("#confirmedBtn").siblings("input").removeAttr("disabled")
+
+            //使用指定的配置项和数据显示图表
+            myChart.setOption({
+                title:{
+                    text: '国内疫情信息分布-' + "累计确诊数据" ,   //标题内容
+                },
+                series: [{
+                    name: '累计确诊',
+                    data: confirmedArr      //把数据设置到图表中
+                }],
+                //视觉效果(图例)
+                visualMap: {
+                    pieces: confirmedPieces     //把图例设置到图标中
+                }
+            })
+        });
+
+        //点击"累计治愈"按钮时
+        $("#curedBtn").click(function () {
+            //当前按钮不可用
+            $("#curedBtn").attr("disabled", true);
+            //其他兄弟按钮可用
+            $("#curedBtn").siblings("input").removeAttr("disabled")
+
+            //使用指定的配置项和数据显示图表
+            myChart.setOption({
+                title:{
+                    text: '国内疫情信息分布-' + "累计治愈数据" ,   //标题内容
+                },
+                series: [{
+                    name: '累计治愈',
+                    data: curedArr      //把数据设置到图表中
+                }],
+                //视觉效果(图例)
+                visualMap: {
+                    pieces: curedPieces
+                }
+            })
+        });
+
+        //点击"累计死亡"按钮时
+        $("#deadBtn").click(function () {
+            //当前按钮不可用
+            $("#deadBtn").attr("disabled", true);
+            //其他兄弟按钮可用
+            $("#deadBtn").siblings("input").removeAttr("disabled")
+
+            //使用指定的配置项和数据显示图表
+            myChart.setOption({
+                title:{
+                    text: '国内疫情信息分布-' + "累计死亡数据" ,   //标题内容
+                },
+                series: [{
+                    name: '累计死亡',
+                    data: deadArr,      //把数据设置到图表中
+                }],
+                //视觉效果(图例)
+                visualMap: {
+                    pieces: deadPieces
+                }
+            })
+        });
+    });
+</script>
+</body>
+</html>

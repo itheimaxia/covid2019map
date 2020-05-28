@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>各地市疫情数据</title>
+    <style>
+        .container {
+            width: 1200px;
+            margin: 0 auto;
+        }
+
+        #myEcharts {
+            width: 800px;
+            height: 500px;
+            margin: 0 auto;
+        }
+    </style>
+    <!--引入jquery-->
+    <script src="js/jquery-3.3.1.min.js"></script>
+    <!--引入echarts-->
+    <script src="js/echarts.min.js"></script>
+    <!--引入echarts中的中国地图-->
+    <script src="js/china.js"></script>
+    <!--引入获取url中参数的js-->
+    <script src="js/getParameter.js"></script>
+    <!--引入bootstrap的css样式-->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <!--引入bootstrap-->
+    <script src="js/bootstrap.min.js"></script>
+</head>
+
+<body>
+<div class="container">
+    <input type="button" id="backButton" class="btn btn-default countBtn" value="返回"/>
+    <div id="myEcharts"></div>
+    <!-- 模态框（Modal） -->
+    <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                    <h4 class="modal-title" id="myModalLabel">提示</h4>
+                </div>
+                <div class="modal-body" id="errorMsg" style="color: red"><h4>服务器繁忙,稍后请重试...</h4></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    //获取省份名字(从index.html页面跳转过来的时候携带的参数)
+    let provinceShortName = getParameter("provinceShortName");
+    //如果没有省份名称,则默认为河南
+    if (!provinceShortName) {
+        provinceShortName = "河南";
+    }
+
+    //初始化echarts实例
+    var myChart = echarts.init($("#myEcharts").get(0));
+    //鹅湖之echarts的参数
+    option = {
+        //标题
+        title: {
+            text: provinceShortName + "各地市疫情数据",     //标题内容
+            x: 'center'                               //标题位置(横向位置)
+        },
+        // 提示框
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: {      // 坐标轴指示器,坐标轴触发有效
+                type: 'shadow'  // 默认为直线，可选为：'line' | 'shadow'
+            }
+        },
+        //图例
+        legend: {
+            orient: 'vertical',     //布局方式，默认为水平布局，可选为：'horizontal' ¦ 'vertical'
+            x: 'right',             //水平安放位置，默认为全图居中，可选为：'center' ¦ 'left' ¦ 'right' ¦ {number}（x坐标，单位px）
+            y: 'center',            //垂直安放位置，默认为全图顶端，可选为：'top' ¦ 'bottom' ¦ 'center' ¦ {number}（y坐标，单位px）
+            data: ['累计确诊', '累计治愈', '累计死亡'], //图例选项
+            align: 'left'            //图例显示位置(图例在左边,文字在右边)
+        },
+        //网格(图表)位置
+        grid: {
+            left: '3%',             //左边留白
+            right: '12%',           //右边留白
+            containLabel: true      //区域是否包含坐标轴的刻度标签
+        },
+        //x轴属性
+        xAxis: {
+            type: 'value'          //坐标轴类型, 值类型
+        },
+        //y轴坐标
+        yAxis: {
+            type: 'category',       //坐标轴类型, 目录型
+            data: []                //数据
+        }
+    };
+
+    //使用指定的配置项和数据显示图表
+    myChart.setOption(option);
+
+    //点击"累计死亡"按钮时
+    $("#backButton").click(function () {
+        location.href = "index.html";
+    });
+
+    //页面加载后,发送异步请求,获取数据
+    $(function () {
+        $.ajax({
+            //请求地址
+            url: "http://localhost:8080/findProvinceByShortName",
+            //请求参数
+            data: {
+                provinceShortName: provinceShortName
+            },
+            //响应的数据类型
+            dataType: "json",
+            //响应成功
+            success: function (proInfo) {
+                //城市名称
+                var cityNames = [];
+                //累计确诊病例-数据
+                var confirmedArr = [];
+                //累计治愈病例-数据
+                var curedArr = [];
+                //累计死亡病例-数据
+                var deadArr = [];
+                //如果获取到的省疫情数据
+                if (proInfo) {
+                    //遍历该省份中的所有市的信息
+                    for (var i = 0; i < proInfo.cities.length; i++) {
+                        //获取市信息
+                        var city = proInfo.cities[i];
+                        //把城市的名称,添加到"城市名称数组"中
+                        cityNames.push(city.cityName);
+                        //把累计确诊数据,添加到"累计确诊数组"中
+                        confirmedArr.push(city.confirmedCount);
+                        //把累计治愈,添加到"累计治愈数组"中
+                        curedArr.push(city.curedCount);
+                        //把累计死亡,添加到"累计死亡数组"中
+                        deadArr.push(city.deadCount);
+                    }
+                    //使用指定的配置项和数据显示图表
+                    myChart.setOption({
+                        //设置y轴数据
+                        yAxis: {
+                            data: cityNames     //把城市名称设置到y轴
+                        },
+                        //图表信息
+                        series: [
+                            {
+                                name: '累计确诊',       //名称
+                                type: 'bar',            //类型
+                                data: confirmedArr      //数据
+                            },
+                            {
+                                name: '累计治愈',
+                                type: 'bar',
+                                color: '#3cb371',       //颜色
+                                data: curedArr
+                            },
+                            {
+                                name: '累计死亡',
+                                type: 'bar',
+                                data: deadArr
+                            }
+                        ]
+                    });
+                } else {
+                    $("#myModal").modal("show");
+                }
+            },
+            //如果响应失败
+            error: function () {
+                $("#myModal").modal("show");
+            }
+        })
+    });
+
+</script>
+</body>
+</html>
